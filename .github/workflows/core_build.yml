@@ -38,7 +38,7 @@ jobs:
       - name: Checkout AzerothCore
         uses: actions/checkout@v3
         with:
-          repository: 'der-faebu/azerothcore-wotlk'
+          repository: 'der-faebu/azerothcore-wotlk-playerbots'
           ref: 'Playerbot'
 
       - name: Set reusable strings
