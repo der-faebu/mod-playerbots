@@ -33,13 +33,18 @@ void TrainerAction::Learn(uint32 cost, TrainerSpell const* tSpell, std::ostrings
         if (spellInfo->Effects[j].Effect == SPELL_EFFECT_LEARN_SPELL)
         {
             uint32 learnedSpell = spellInfo->Effects[j].TriggerSpell;
-            bot->learnSpell(learnedSpell);
-            learned = true;
+            if (!bot->HasSpell(learnedSpell))
+            {
+                bot->learnSpell(learnedSpell);
+                learned = true;
+            }
         }
     }
 
-    if (!learned)
+    if (!learned && !bot->HasSpell(tSpell->spell))
+    {
         bot->learnSpell(tSpell->spell);
+    }
 
     msg << " - learned";
 }
@@ -170,6 +175,8 @@ bool MaintenanceAction::Execute(Event event)
     factory.InitAmmo();
     factory.InitFood();
     factory.InitReagents();
+    factory.InitConsumables();
+    factory.InitPotions();
     factory.InitTalentsTree(true);
     factory.InitPet();
     factory.InitPetTalents();
@@ -179,7 +186,7 @@ bool MaintenanceAction::Execute(Event event)
     factory.InitReputation();
     factory.InitSpecialSpells();
     factory.InitMounts();
-    factory.InitGlyphs(true);
+    factory.InitGlyphs(false);
     factory.InitKeyring();
     if (bot->GetLevel() >= sPlayerbotAIConfig->minEnchantingBotLevel)
         factory.ApplyEnchantAndGemsNew();

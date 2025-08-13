@@ -32,6 +32,12 @@ bool TradeStatusAction::Execute(Event event)
         return false;
     }
 
+    if (sPlayerbotAIConfig->enableRandomBotTrading == 0 && (sRandomPlayerbotMgr->IsRandomBot(bot)|| sRandomPlayerbotMgr->IsAddclassBot(bot)))
+    {
+        bot->Whisper("Trading is disabled", LANG_UNIVERSAL, trader);
+        return false;
+    }
+
     // Allow trades from group members or bots
     if ((!bot->GetGroup() || !bot->GetGroup()->IsMember(trader->GetGUID())) &&
         (trader != master || !botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, true, master)) &&
@@ -49,7 +55,7 @@ bool TradeStatusAction::Execute(Event event)
     uint32 status;
     p >> status;
 
-    if (status == TRADE_STATUS_TRADE_ACCEPT)
+    if (status == TRADE_STATUS_TRADE_ACCEPT || (status == TRADE_STATUS_BACK_TO_TRADE && trader->GetTradeData() && trader->GetTradeData()->IsAccepted()))
     {
         WorldPacket p;
         uint32 status = 0;
@@ -122,11 +128,12 @@ bool TradeStatusAction::Execute(Event event)
 
 void TradeStatusAction::BeginTrade()
 {
+    Player* trader = bot->GetTrader();
+    if (!trader || GET_PLAYERBOT_AI(bot->GetTrader()))
+        return;
+
     WorldPacket p;
     bot->GetSession()->HandleBeginTradeOpcode(p);
-
-    if (GET_PLAYERBOT_AI(bot->GetTrader()))
-        return;
 
     ListItemsVisitor visitor;
     IterateItems(&visitor);
@@ -149,7 +156,7 @@ void TradeStatusAction::BeginTrade()
 bool TradeStatusAction::CheckTrade()
 {
     Player* trader = bot->GetTrader();
-    if (!bot->GetTradeData() || !trader->GetTradeData())
+    if (!bot->GetTradeData() || !trader || !trader->GetTradeData())
         return false;
 
     if (!botAI->HasActivePlayerMaster() && GET_PLAYERBOT_AI(bot->GetTrader()))
@@ -164,7 +171,6 @@ bool TradeStatusAction::CheckTrade()
                 break;
             }
         }
-
         bool isGettingItem = false;
         for (uint32 slot = 0; slot < TRADE_SLOT_TRADED_COUNT; ++slot)
         {
@@ -175,7 +181,7 @@ bool TradeStatusAction::CheckTrade()
                 break;
             }
         }
-
+        
         if (isGettingItem)
         {
             if (bot->GetGroup() && bot->GetGroup()->IsMember(bot->GetTrader()->GetGUID()) &&
@@ -208,7 +214,16 @@ bool TradeStatusAction::CheckTrade()
     int32 botMoney = bot->GetTradeData()->GetMoney() + botItemsMoney;
     int32 playerItemsMoney = CalculateCost(trader, false);
     int32 playerMoney = trader->GetTradeData()->GetMoney() + playerItemsMoney;
-
+    if (botItemsMoney > 0 && sPlayerbotAIConfig->enableRandomBotTrading == 2 && (sRandomPlayerbotMgr->IsRandomBot(bot)|| sRandomPlayerbotMgr->IsAddclassBot(bot)))
+    {
+        bot->Whisper("Selling is disabled.", LANG_UNIVERSAL, trader);
+        return false;
+    }
+    if (playerItemsMoney && sPlayerbotAIConfig->enableRandomBotTrading == 3 && (sRandomPlayerbotMgr->IsRandomBot(bot)|| sRandomPlayerbotMgr->IsAddclassBot(bot)))
+    {
+        bot->Whisper("Buying is disabled.", LANG_UNIVERSAL, trader);
+        return false;
+    }
     for (uint32 slot = 0; slot < TRADE_SLOT_TRADED_COUNT; ++slot)
     {
         Item* item = bot->GetTradeData()->GetItem((TradeSlots)slot);

@@ -48,8 +48,8 @@ bool UseMeetingStoneAction::Execute(Event event)
         return false;
 
     GameObjectTemplate const* goInfo = gameObject->GetGOInfo();
-    if (!goInfo || goInfo->type != GAMEOBJECT_TYPE_SUMMONING_RITUAL)
-        return false;
+    if (!goInfo || goInfo->entry != 179944)
+		return false;
 
     return Teleport(master, bot);
 }
@@ -110,7 +110,7 @@ bool SummonAction::SummonUsingGos(Player* summoner, Player* player)
     std::list<GameObject*> targets;
     AnyGameObjectInObjectRangeCheck u_check(summoner, sPlayerbotAIConfig->sightDistance);
     Acore::GameObjectListSearcher<AnyGameObjectInObjectRangeCheck> searcher(summoner, targets, u_check);
-    Cell::VisitAllObjects(summoner, searcher, sPlayerbotAIConfig->sightDistance);
+    Cell::VisitObjects(summoner, searcher, sPlayerbotAIConfig->sightDistance);
 
     for (GameObject* go : targets)
     {
@@ -130,7 +130,7 @@ bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
     std::list<Unit*> targets;
     Acore::AnyUnitInObjectRangeCheck u_check(summoner, sPlayerbotAIConfig->sightDistance);
     Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> searcher(summoner, targets, u_check);
-    Cell::VisitAllObjects(summoner, searcher, sPlayerbotAIConfig->sightDistance);
+    Cell::VisitObjects(summoner, searcher, sPlayerbotAIConfig->sightDistance);
 
     for (Unit* unit : targets)
     {
@@ -218,6 +218,7 @@ bool SummonAction::Teleport(Player* summoner, Player* player)
                 if (bot->isDead() && revive)
                 {
                     bot->ResurrectPlayer(1.0f, false);
+                    bot->SpawnCorpseBones();
                     botAI->TellMasterNoFacing("I live, again!");
                     botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Reset();
                 }
@@ -240,6 +241,7 @@ bool SummonAction::Teleport(Player* summoner, Player* player)
         }
     }
 
-    botAI->TellError("Not enough place to summon");
+    if(summoner != player)
+         botAI->TellError("Not enough place to summon");
     return false;
 }

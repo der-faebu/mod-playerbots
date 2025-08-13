@@ -847,6 +847,26 @@ bool MovementAction::ReachCombatTo(Unit* target, float distance)
     float tx = target->GetPositionX();
     float ty = target->GetPositionY();
     float tz = target->GetPositionZ();
+
+    float targetOrientation = target->GetOrientation();
+
+    float deltaAngle = Position::NormalizeOrientation(targetOrientation - target->GetAngle(bot));
+    if (deltaAngle > M_PI)
+        deltaAngle -= 2.0f * M_PI; // -PI..PI
+    // if target is moving forward and moving far away, predict the position
+    bool behind = fabs(deltaAngle) > M_PI_2;
+    if (target->HasUnitMovementFlag(MOVEMENTFLAG_FORWARD) && behind) {
+        float predictDis = std::min(3.0f, target->GetObjectSize() * 2);
+        tx += cos(target->GetOrientation()) * predictDis;
+        ty += sin(target->GetOrientation()) * predictDis;
+        if (!target->GetMap()->CheckCollisionAndGetValidCoords(target, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(),
+        tx, ty, tz))
+        {
+            tx = target->GetPositionX();
+            ty = target->GetPositionY();
+            tz = target->GetPositionZ();
+        }
+    }
     float combatDistance = bot->GetCombatReach() + target->GetCombatReach();
     distance += combatDistance;
 
@@ -863,7 +883,7 @@ bool MovementAction::ReachCombatTo(Unit* target, float distance)
 
     // Avoid walking too far when moving towards each other
     float disToGo = bot->GetExactDist(tx, ty, tz) - distance;
-    if (disToGo >= 10.0f)
+    if (disToGo >= 6.0f)
         shortenTo = disToGo / 2 + distance;
 
     // if (bot->GetExactDist(tx, ty, tz) <= shortenTo)
@@ -1007,6 +1027,20 @@ void MovementAction::UpdateMovementState()
         bot->SendMovementFlagUpdate();
     }
 
+    // See if the bot is currently slowed, rooted, or otherwise unable to move
+    bool isCurrentlyRestricted = bot->isFrozen() || bot->IsPolymorphed() || bot->HasRootAura() || bot->HasStunAura() ||
+                                 bot->HasConfuseAura() || bot->HasUnitState(UNIT_STATE_LOST_CONTROL);
+
+    // Detect if movement restrictions have been lifted
+    if (wasMovementRestricted && !isCurrentlyRestricted && bot->IsAlive())
+    {
+        // CC just ended - refresh movement state to ensure animations play correctly
+        bot->SendMovementFlagUpdate();
+    }
+
+    // Save current state for the next check
+    wasMovementRestricted = isCurrentlyRestricted;
+    
     // Temporary speed increase in group
     // if (botAI->HasRealPlayerMaster()) {
     //     bot->SetSpeedRate(MOVE_RUN, 1.1f);
@@ -1767,7 +1801,6 @@ const Movement::PointsArray MovementAction::SearchForBestPath(float x, float y, 
 
 bool FleeAction::Execute(Event event)
 {
-    // return Flee(AI_VALUE(Unit*, "current target"));
     return MoveAway(AI_VALUE(Unit*, "current target"), sPlayerbotAIConfig->fleeDistance, true);
 }
 
@@ -1777,6 +1810,10 @@ bool FleeAction::isUseful()
     {
         return false;
     }
+    Unit* target = AI_VALUE(Unit*, "current target");
+    if (target && target->IsInWorld() && !bot->IsWithinMeleeRange(target))
+        return false;
+
     return true;
 }
 
@@ -2232,7 +2269,9 @@ bool CombatFormationMoveAction::isUseful()
 bool CombatFormationMoveAction::Execute(Event event)
 {
     float dis = AI_VALUE(float, "disperse distance");
-    if (dis <= 0.0f)
+    if (dis <= 0.0f ||
+        (!bot->IsInCombat() && botAI->HasStrategy("stay", BotState::BOT_STATE_NON_COMBAT)) ||
+        (bot->IsInCombat() && botAI->HasStrategy("stay", BotState::BOT_STATE_COMBAT)))
         return false;
     Player* playerToLeave = NearestGroupMember(dis);
     if (playerToLeave && bot->GetExactDist(playerToLeave) < dis)
