@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "PullStrategy.h"
@@ -31,10 +31,13 @@ float MagePullMultiplier::GetValue(Action* action)
     return PassiveMultiplier::GetValue(action);
 }
 
-NextAction** PullStrategy::getDefaultActions()
+std::vector<NextAction> PullStrategy::getDefaultActions()
 {
-    return NextAction::array(0, new NextAction(action, 105.0f), new NextAction("follow", 104.0f),
-                             new NextAction("end pull", 103.0f), nullptr);
+    return {
+        NextAction(action, 105.0f),
+        NextAction("follow", 104.0f),
+        NextAction("end pull", 103.0f),
+    };
 }
 
 void PullStrategy::InitTriggers(std::vector<TriggerNode*>& triggers) { CombatStrategy::InitTriggers(triggers); }
@@ -50,5 +53,11 @@ void PossibleAddsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     Strategy::InitTriggers(triggers);
 
     triggers.push_back(
-        new TriggerNode("possible adds", NextAction::array(0, new NextAction("flee with pet", 60), nullptr)));
+        new TriggerNode(
+            "possible adds",
+            {
+                NextAction("flee with pet", 60)
+            }
+        )
+    );
 }

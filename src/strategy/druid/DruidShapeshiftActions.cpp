@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "DruidShapeshiftActions.h"
@@ -17,9 +17,9 @@ bool CastBearFormAction::isUseful()
     return CastBuffSpellAction::isUseful() && !botAI->HasAura("dire bear form", GetTarget());
 }
 
-NextAction** CastDireBearFormAction::getAlternatives()
+std::vector<NextAction> CastDireBearFormAction::getAlternatives()
 {
-    return NextAction::merge(NextAction::array(0, new NextAction("bear form"), nullptr),
+    return NextAction::merge({ NextAction("bear form") },
                              CastSpellAction::getAlternatives());
 }
 

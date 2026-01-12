@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "GenericDKNonCombatStrategy.h"
@@ -20,17 +20,17 @@ private:
     static ActionNode* bone_shield([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("bone shield",
-                              /*P*/ nullptr,
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ {},
+                              /*A*/ {},
+                              /*C*/ {});
     }
 
     static ActionNode* horn_of_winter([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("horn of winter",
-                              /*P*/ nullptr,
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ {},
+                              /*A*/ {},
+                              /*C*/ {});
     }
 };
 
@@ -44,17 +44,18 @@ void GenericDKNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& trigger
     NonCombatStrategy::InitTriggers(triggers);
 
     triggers.push_back(
-        new TriggerNode("no pet", NextAction::array(0, new NextAction("raise dead", ACTION_NORMAL + 1), nullptr)));
+        new TriggerNode("no pet", { NextAction("raise dead", ACTION_NORMAL + 1) }));
     triggers.push_back(
-        new TriggerNode("horn of winter", NextAction::array(0, new NextAction("horn of winter", 21.0f), nullptr)));
+        new TriggerNode("horn of winter", { NextAction("horn of winter", 21.0f) }));
     triggers.push_back(
-        new TriggerNode("bone shield", NextAction::array(0, new NextAction("bone shield", 21.0f), nullptr)));
+        new TriggerNode("bone shield", { NextAction("bone shield", 21.0f) }));
     triggers.push_back(
-        new TriggerNode("has pet", NextAction::array(0, new NextAction("toggle pet spell", 11.0f), NULL)));
+        new TriggerNode("has pet", { NextAction("toggle pet spell", 60.0f) }));
+    triggers.push_back(
+        new TriggerNode("new pet", { NextAction("set pet stance", 60.0f) }));
 }
 
 void DKBuffDpsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
-    // triggers.push_back(new TriggerNode("improved icy talons", NextAction::array(0, new NextAction("improved icy
-    // talons", 19.0f), nullptr)));
+
 }

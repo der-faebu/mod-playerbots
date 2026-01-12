@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_GENERICTRIGGERS_H
@@ -550,7 +550,7 @@ public:
     bool IsActive() override;
 };
 
-BEGIN_TRIGGER(PanicTrigger, Trigger)
+BEGIN_TRIGGER(PanicTrigger, Trigger) // cppcheck-suppress unknownMacro
 std::string const getName() override { return "panic"; }
 END_TRIGGER()
 
@@ -941,6 +941,18 @@ public:
     SelfResurrectTrigger(PlayerbotAI* ai) : Trigger(ai, "can self resurrect") {}
 
     bool IsActive() override { return !bot->IsAlive() && bot->GetUInt32Value(PLAYER_SELF_RES_SPELL); }
+};
+
+class NewPetTrigger : public Trigger
+{
+public:
+    NewPetTrigger(PlayerbotAI* ai) : Trigger(ai, "new pet"), lastPetGuid(ObjectGuid::Empty), triggered(false) {}
+
+    bool IsActive() override;
+
+private:
+    ObjectGuid lastPetGuid;
+    bool triggered;
 };
 
 #endif

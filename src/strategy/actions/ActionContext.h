@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_ACTIONCONTEXT_H
@@ -46,7 +46,6 @@
 #include "OutfitAction.h"
 #include "PositionAction.h"
 #include "DropQuestAction.h"
-#include "RaidNaxxActions.h"
 #include "RandomBotUpdateAction.h"
 #include "ReachTargetActions.h"
 #include "ReleaseSpiritAction.h"
@@ -64,6 +63,7 @@
 #include "WorldBuffAction.h"
 #include "XpGainAction.h"
 #include "NewRpgAction.h"
+#include "FishingAction.h"
 #include "CancelChannelAction.h"
 
 class PlayerbotAI;
@@ -121,7 +121,7 @@ public:
         creators["shoot"] = &ActionContext::shoot;
         creators["follow"] = &ActionContext::follow;
         creators["move from group"] = &ActionContext::move_from_group;
-        creators["flee to master"] = &ActionContext::flee_to_master;
+        creators["flee to group leader"] = &ActionContext::flee_to_group_leader;
         creators["runaway"] = &ActionContext::runaway;
         creators["stay"] = &ActionContext::stay;
         creators["sit"] = &ActionContext::sit;
@@ -191,6 +191,11 @@ public:
         creators["buy tabard"] = &ActionContext::buy_tabard;
         creators["guild manage nearby"] = &ActionContext::guild_manage_nearby;
         creators["clean quest log"] = &ActionContext::clean_quest_log;
+        creators["move near water"] = &ActionContext::move_near_water;
+        creators["go fishing"] = &ActionContext::go_fishing;
+        creators["use fishing bobber"] = &ActionContext::use_fishing_bobber;
+        creators["end master fishing"] = &ActionContext::end_master_fishing;
+        creators["remove bobber strategy"] = &ActionContext::remove_bobber_strategy;
         creators["roll"] = &ActionContext::roll_action;
         creators["cancel channel"] = &ActionContext::cancel_channel;
 
@@ -246,7 +251,8 @@ public:
         creators["rpg mount anim"] = &ActionContext::rpg_mount_anim;
 
         creators["toggle pet spell"] = &ActionContext::toggle_pet_spell;
-        creators["pet attack"] = &ActionContext::pet_attack; 
+        creators["pet attack"] = &ActionContext::pet_attack;
+        creators["set pet stance"] = &ActionContext::set_pet_stance;
 
         creators["new rpg status update"] = &ActionContext::new_rpg_status_update;
         creators["new rpg go grind"] = &ActionContext::new_rpg_go_grind;
@@ -317,7 +323,7 @@ private:
     static Action* runaway(PlayerbotAI* botAI) { return new RunAwayAction(botAI); }
     static Action* follow(PlayerbotAI* botAI) { return new FollowAction(botAI); }
     static Action* move_from_group(PlayerbotAI* botAI) { return new MoveFromGroupAction(botAI); }
-    static Action* flee_to_master(PlayerbotAI* botAI) { return new FleeToMasterAction(botAI); }
+    static Action* flee_to_group_leader(PlayerbotAI* botAI) { return new FleeToGroupLeaderAction(botAI); }
     static Action* add_gathering_loot(PlayerbotAI* botAI) { return new AddGatheringLootAction(botAI); }
     static Action* add_loot(PlayerbotAI* botAI) { return new AddLootAction(botAI); }
     static Action* add_all_loot(PlayerbotAI* botAI) { return new AddAllLootAction(botAI); }
@@ -379,6 +385,11 @@ private:
     static Action* buy_tabard(PlayerbotAI* botAI) { return new BuyTabardAction(botAI); }
     static Action* guild_manage_nearby(PlayerbotAI* botAI) { return new GuildManageNearbyAction(botAI); }
     static Action* clean_quest_log(PlayerbotAI* botAI) { return new CleanQuestLogAction(botAI); }
+    static Action* move_near_water(PlayerbotAI* botAI) { return new MoveNearWaterAction(botAI); }
+    static Action* go_fishing(PlayerbotAI* botAI) { return new FishingAction(botAI);}
+    static Action* use_fishing_bobber(PlayerbotAI* botAI) { return new UseBobberAction(botAI);}
+    static Action* end_master_fishing(PlayerbotAI* botAI) { return new EndMasterFishingAction(botAI); }
+    static Action* remove_bobber_strategy(PlayerbotAI* botAI) { return new RemoveBobberStrategyAction(botAI); }
     static Action* roll_action(PlayerbotAI* botAI) { return new RollAction(botAI); }
 
     // BG Tactics
@@ -434,6 +445,7 @@ private:
 
     static Action* toggle_pet_spell(PlayerbotAI* ai) { return new TogglePetSpellAutoCastAction(ai); }
     static Action* pet_attack(PlayerbotAI* ai) { return new PetAttackAction(ai); }
+    static Action* set_pet_stance(PlayerbotAI* ai) { return new SetPetStanceAction(ai); }
 
     static Action* new_rpg_status_update(PlayerbotAI* ai) { return new NewRpgStatusUpdateAction(ai); }
     static Action* new_rpg_go_grind(PlayerbotAI* ai) { return new NewRpgGoGrindAction(ai); }

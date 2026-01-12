@@ -1,22 +1,25 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "DruidActions.h"
 
 #include "Event.h"
 #include "Playerbots.h"
+#include "ServerFacade.h"
+#include "AoeValues.h"
+#include "TargetValue.h"
 
-NextAction** CastAbolishPoisonAction::getAlternatives()
+std::vector<NextAction> CastAbolishPoisonAction::getAlternatives()
 {
-    return NextAction::merge(NextAction::array(0, new NextAction("cure poison"), nullptr),
+    return NextAction::merge({ NextAction("cure poison") },
                              CastSpellAction::getPrerequisites());
 }
 
-NextAction** CastAbolishPoisonOnPartyAction::getAlternatives()
+std::vector<NextAction> CastAbolishPoisonOnPartyAction::getAlternatives()
 {
-    return NextAction::merge(NextAction::array(0, new NextAction("cure poison on party"), nullptr),
+    return NextAction::merge({ NextAction("cure poison on party") },
                              CastSpellAction::getPrerequisites());
 }
 
@@ -30,16 +33,42 @@ bool CastEntanglingRootsCcAction::Execute(Event event) { return botAI->CastSpell
 Value<Unit*>* CastHibernateCcAction::GetTargetValue() { return context->GetValue<Unit*>("cc target", "hibernate"); }
 
 bool CastHibernateCcAction::Execute(Event event) { return botAI->CastSpell("hibernate", GetTarget()); }
-
-NextAction** CastReviveAction::getPrerequisites()
+bool CastStarfallAction::isUseful()
 {
-    return NextAction::merge(NextAction::array(0, new NextAction("caster form"), nullptr),
+    if (!CastSpellAction::isUseful())
+        return false;
+
+    // Avoid breaking CC
+    WorldLocation aoePos = *context->GetValue<WorldLocation>("aoe position");
+    Unit* ccTarget = context->GetValue<Unit*>("current cc target")->Get();
+    if (ccTarget && ccTarget->IsAlive())
+    {
+        float dist2d = sServerFacade->GetDistance2d(ccTarget, aoePos.GetPositionX(), aoePos.GetPositionY());
+        if (sServerFacade->IsDistanceLessOrEqualThan(dist2d, sPlayerbotAIConfig->aoeRadius))
+            return false;
+    }
+
+    // Avoid single-target usage on initial pull
+    uint8 aoeCount = *context->GetValue<uint8>("aoe count");
+    if (aoeCount < 2)
+    {
+        Unit* target = context->GetValue<Unit*>("current target")->Get();
+        if (!target || (!botAI->HasAura("moonfire", target) && !botAI->HasAura("insect swarm", target)))
+            return false;
+    }
+
+    return true;
+}
+
+std::vector<NextAction> CastReviveAction::getPrerequisites()
+{
+    return NextAction::merge({ NextAction("caster form") },
                              ResurrectPartyMemberAction::getPrerequisites());
 }
 
-NextAction** CastRebirthAction::getPrerequisites()
+std::vector<NextAction> CastRebirthAction::getPrerequisites()
 {
-    return NextAction::merge(NextAction::array(0, new NextAction("caster form"), nullptr),
+    return NextAction::merge({ NextAction("caster form") },
                              ResurrectPartyMemberAction::getPrerequisites());
 }
 

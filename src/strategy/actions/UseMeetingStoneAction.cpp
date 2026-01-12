@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "UseMeetingStoneAction.h"
@@ -9,6 +9,7 @@
 #include "Event.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
+#include "NearestGameObjects.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
@@ -49,28 +50,10 @@ bool UseMeetingStoneAction::Execute(Event event)
 
     GameObjectTemplate const* goInfo = gameObject->GetGOInfo();
     if (!goInfo || goInfo->entry != 179944)
-		return false;
-
-    return Teleport(master, bot);
-}
-
-class AnyGameObjectInObjectRangeCheck
-{
-public:
-    AnyGameObjectInObjectRangeCheck(WorldObject const* obj, float range) : i_obj(obj), i_range(range) {}
-    WorldObject const& GetFocusObject() const { return *i_obj; }
-    bool operator()(GameObject* go)
-    {
-        if (go && i_obj->IsWithinDistInMap(go, i_range) && go->isSpawned() && go->GetGOInfo())
-            return true;
-
         return false;
-    }
 
-private:
-    WorldObject const* i_obj;
-    float i_range;
-};
+    return Teleport(master, bot, false);
+}
 
 bool SummonAction::Execute(Event event)
 {
@@ -87,16 +70,16 @@ bool SummonAction::Execute(Event event)
     {
         // botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Set({});
         AI_VALUE(std::list<FleeInfo>&, "recently flee info").clear();
-        return Teleport(master, bot);
+        return Teleport(master, bot, true);
     }
 
-    if (SummonUsingGos(master, bot) || SummonUsingNpcs(master, bot))
+    if (SummonUsingGos(master, bot, true) || SummonUsingNpcs(master, bot, true))
     {
         botAI->TellMasterNoFacing("Hello!");
         return true;
     }
 
-    if (SummonUsingGos(bot, master) || SummonUsingNpcs(bot, master))
+    if (SummonUsingGos(bot, master, true) || SummonUsingNpcs(bot, master, true))
     {
         botAI->TellMasterNoFacing("Welcome!");
         return true;
@@ -105,7 +88,7 @@ bool SummonAction::Execute(Event event)
     return false;
 }
 
-bool SummonAction::SummonUsingGos(Player* summoner, Player* player)
+bool SummonAction::SummonUsingGos(Player* summoner, Player* player, bool preserveAuras)
 {
     std::list<GameObject*> targets;
     AnyGameObjectInObjectRangeCheck u_check(summoner, sPlayerbotAIConfig->sightDistance);
@@ -115,14 +98,14 @@ bool SummonAction::SummonUsingGos(Player* summoner, Player* player)
     for (GameObject* go : targets)
     {
         if (go->isSpawned() && go->GetGoType() == GAMEOBJECT_TYPE_MEETINGSTONE)
-            return Teleport(summoner, player);
+            return Teleport(summoner, player, preserveAuras);
     }
 
     botAI->TellError(summoner == bot ? "There is no meeting stone nearby" : "There is no meeting stone near you");
     return false;
 }
 
-bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
+bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player, bool preserveAuras)
 {
     if (!sPlayerbotAIConfig->summonAtInnkeepersEnabled)
         return false;
@@ -134,7 +117,7 @@ bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
 
     for (Unit* unit : targets)
     {
-        if (unit && unit->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_INNKEEPER))
+        if (unit && unit->HasNpcFlag(UNIT_NPC_FLAG_INNKEEPER))
         {
             if (!player->HasItemCount(6948, 1, false))
             {
@@ -156,7 +139,7 @@ bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
             Spell spell(player, spellInfo, TRIGGERED_NONE);
             spell.SendSpellCooldown();
 
-            return Teleport(summoner, player);
+            return Teleport(summoner, player, preserveAuras);
         }
     }
 
@@ -164,12 +147,12 @@ bool SummonAction::SummonUsingNpcs(Player* summoner, Player* player)
     return false;
 }
 
-bool SummonAction::Teleport(Player* summoner, Player* player)
+bool SummonAction::Teleport(Player* summoner, Player* player, bool preserveAuras)
 {
     // Player* master = GetMaster();
     if (!summoner)
         return false;
-    
+
     if (player->GetVehicle())
     {
         botAI->TellError("You cannot summon me while I'm on a vehicle");
@@ -225,6 +208,11 @@ bool SummonAction::Teleport(Player* summoner, Player* player)
 
                 player->GetMotionMaster()->Clear();
                 AI_VALUE(LastMovement&, "last movement").clear();
+
+                if (!preserveAuras)
+                    player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED |
+                                                          AURA_INTERRUPT_FLAG_CHANGE_MAP);
+
                 player->TeleportTo(mapId, x, y, z, 0);
 
                 if (botAI->HasStrategy("stay", botAI->GetState()))
@@ -241,7 +229,7 @@ bool SummonAction::Teleport(Player* summoner, Player* player)
         }
     }
 
-    if(summoner != player)
+    if (summoner != player)
          botAI->TellError("Not enough place to summon");
     return false;
 }

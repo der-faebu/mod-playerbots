@@ -1,12 +1,13 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_TRIGGERCONTEXT_H
 #define _PLAYERBOT_TRIGGERCONTEXT_H
 
 #include "CureTriggers.h"
+#include "FishingTriggers.h"
 #include "GenericTriggers.h"
 #include "GuildTriggers.h"
 #include "LfgTriggers.h"
@@ -15,7 +16,6 @@
 #include "NewRpgStrategy.h"
 #include "NewRpgTriggers.h"
 #include "PvpTriggers.h"
-#include "RaidNaxxTriggers.h"
 #include "RpgTriggers.h"
 #include "RtiTriggers.h"
 #include "StuckTriggers.h"
@@ -52,7 +52,6 @@ public:
         creators["high mana"] = &TriggerContext::HighMana;
         creators["almost full mana"] = &TriggerContext::AlmostFullMana;
         creators["enough mana"] = &TriggerContext::EnoughMana;
-
 
         creators["party member critical health"] = &TriggerContext::PartyMemberCriticalHealth;
         creators["party member low health"] = &TriggerContext::PartyMemberLowHealth;
@@ -227,6 +226,9 @@ public:
         creators["do quest status"] = &TriggerContext::do_quest_status;
         creators["travel flight status"] = &TriggerContext::travel_flight_status;
         creators["can self resurrect"] = &TriggerContext::can_self_resurrect;
+        creators["can fish"] = &TriggerContext::can_fish;
+        creators["can use fishing bobber"] = &TriggerContext::can_use_fishing_bobber;
+        creators["new pet"] = &TriggerContext::new_pet;
     }
 
 private:
@@ -425,6 +427,9 @@ private:
     static Trigger* do_quest_status(PlayerbotAI* botAI) { return new NewRpgStatusTrigger(botAI, RPG_DO_QUEST); }
     static Trigger* travel_flight_status(PlayerbotAI* botAI) { return new NewRpgStatusTrigger(botAI, RPG_TRAVEL_FLIGHT); }
     static Trigger* can_self_resurrect(PlayerbotAI* ai) { return new SelfResurrectTrigger(ai); }
+    static Trigger* can_fish(PlayerbotAI* ai) { return new CanFishTrigger(ai); }
+    static Trigger* can_use_fishing_bobber(PlayerbotAI* ai) { return new CanUseFishingBobberTrigger(ai); }
+    static Trigger* new_pet(PlayerbotAI* ai) { return new NewPetTrigger(ai); }
 };
 
 #endif

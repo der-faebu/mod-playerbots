@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_FERALRUIDSTRATEGY_H
@@ -27,49 +27,49 @@ private:
     static ActionNode* regrowth([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("regrowth",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ NextAction::array(0, new NextAction("healing touch"), nullptr),
-                              /*C*/ NextAction::array(0, new NextAction("melee", 10.0f), nullptr));
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ { NextAction("healing touch") },
+                              /*C*/ { NextAction("melee", 10.0f) });
     }
 
     static ActionNode* rejuvenation([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("rejuvenation",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ {},
+                              /*C*/ {});
     }
 
     static ActionNode* healing_touch([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("healing touch",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ {},
+                              /*C*/ {});
     }
 
     static ActionNode* regrowth_on_party([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("regrowth on party",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ NextAction::array(0, new NextAction("healing touch on party"), nullptr),
-                              /*C*/ NextAction::array(0, new NextAction("melee", 10.0f), nullptr));
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ { NextAction("healing touch on party") },
+                              /*C*/ { NextAction("melee", 10.0f) });
     }
 
     static ActionNode* rejuvenation_on_party([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("rejuvenation on party",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ {},
+                              /*C*/ {});
     }
 
     static ActionNode* healing_touch_on_party([[maybe_unused]] PlayerbotAI* botAI)
     {
         return new ActionNode("healing touch on party",
-                              /*P*/ NextAction::array(0, new NextAction("caster form"), nullptr),
-                              /*A*/ nullptr,
-                              /*C*/ nullptr);
+                              /*P*/ { NextAction("caster form") },
+                              /*A*/ {},
+                              /*C*/ {});
     }
 };
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "PlayerbotFactory.h"
@@ -30,6 +30,7 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotDbStore.h"
+#include "PlayerbotGuildMgr.h"
 #include "Playerbots.h"
 #include "QuestDef.h"
 #include "RandomItemMgr.h"
@@ -40,6 +41,7 @@
 #include "StatsWeightCalculator.h"
 #include "World.h"
 #include "AiObjectContext.h"
+#include "ItemPackets.h"
 
 const uint64 diveMask = (1LL << 7) | (1LL << 44) | (1LL << 37) | (1LL << 38) | (1LL << 26) | (1LL << 30) | (1LL << 27) |
                         (1LL << 33) | (1LL << 24) | (1LL << 34);
@@ -120,10 +122,17 @@ void PlayerbotFactory::Init()
     uint32 maxStoreSize = sSpellMgr->GetSpellInfoStoreSize();
     for (uint32 id = 1; id < maxStoreSize; ++id)
     {
-        if (id == 47181 || id == 50358 || id == 47242 || id == 52639 || id == 47147 || id == 7218)  // Test Enchant
+        if (id == 7218 || id == 19927 || id == 44119 || id == 47147 || id == 47181 ||
+            id == 47242 || id == 50358 || id == 52639) // Test Enchants
             continue;
 
-        if (id == 15463) // Legendary Arcane Amalgamation
+        if (id == 35791 || id == 39405) // Grandfathered TBC Enchants
+            continue;
+
+        if (id == 15463 || id == 15490) // Legendary Arcane Amalgamation
+            continue;
+
+        if (id == 29467 || id == 29475 || id == 29480 || id == 29483) // Naxx40 Sapphiron Shoulder Enchants
             continue;
 
         SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(id);
@@ -164,22 +173,33 @@ void PlayerbotFactory::Init()
         {
             continue;
         }
+
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(gemId);
+        if (!proto)
+        {
+            continue;
+        }
 
         if (proto->ItemLevel < 60)
-            continue;
-
-        if (proto->Flags & ITEM_FLAG_UNIQUE_EQUIPPABLE)
         {
             continue;
         }
+
+        if (proto->HasFlag(ITEM_FLAG_UNIQUE_EQUIPPABLE))
+        {
+            continue;
+        }
+
         if (sRandomItemMgr->IsTestItem(gemId))
-            continue;
+        {
+           continue;
+        }
 
-        if (!proto || !sGemPropertiesStore.LookupEntry(proto->GemProperties))
+        if (!sGemPropertiesStore.LookupEntry(proto->GemProperties))
         {
             continue;
         }
+
         // LOG_INFO("playerbots", "Add {} to enchantment gems", gemId);
         enchantGemIdCache.push_back(gemId);
     }
@@ -721,7 +741,7 @@ void PlayerbotFactory::InitConsumables()
         int count = (int)item.second - (int)bot->GetItemCount(item.first);
         if (count > 0)
             StoreItem(item.first, count);
-    } 
+    }
 }
 
 void PlayerbotFactory::InitPetTalents()
@@ -1017,14 +1037,17 @@ void PlayerbotFactory::ClearSkills()
     }
     bot->SetUInt32Value(PLAYER_SKILL_INDEX(0), 0);
     bot->SetUInt32Value(PLAYER_SKILL_INDEX(1), 0);
+
     // unlearn default race/class skills
-    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
-    for (PlayerCreateInfoSkills::const_iterator itr = info->skills.begin(); itr != info->skills.end(); ++itr)
+    if (PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass()))
     {
-        uint32 skillId = itr->SkillId;
-        if (!bot->HasSkill(skillId))
-            continue;
-        bot->SetSkill(skillId, 0, 0, 0);
+        for (PlayerCreateInfoSkills::const_iterator itr = info->skills.begin(); itr != info->skills.end(); ++itr)
+        {
+            uint32 skillId = itr->SkillId;
+            if (!bot->HasSkill(skillId))
+                continue;
+            bot->SetSkill(skillId, 0, 0, 0);
+        }
     }
 }
 
@@ -1077,14 +1100,12 @@ void PlayerbotFactory::ResetQuests()
         uint32 entry = quest->GetQuestId();
         if (bot->GetQuestStatus(entry) == QUEST_STATUS_NONE)
             continue;
-        
+
         bot->RemoveRewardedQuest(entry);
         bot->RemoveActiveQuest(entry, false);
 
     }
 }
-
-void PlayerbotFactory::InitSpells() { InitAvailableSpells(); }
 
 void PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_template /*true*/, bool reset /*false*/)
 {
@@ -1153,7 +1174,7 @@ void PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_templa
 
     if (bot->GetFreeTalentPoints())
         InitTalents((specTab + 2) % 3);
-    
+
     bot->SendTalentsInfoData(false);
 }
 
@@ -1373,7 +1394,7 @@ bool PlayerbotFactory::CanEquipArmor(ItemTemplate const* proto)
     // for (uint8 j = 0; j < MAX_ITEM_PROTO_STATS; ++j)
     // {
     //     // for ItemStatValue != 0
-    //     if(!proto->ItemStat[j].ItemStatValue)
+    //     if (!proto->ItemStat[j].ItemStatValue)
     //         continue;
 
     //     AddItemStats(proto->ItemStat[j].ItemStatType, sp, ap, tank);
@@ -1582,7 +1603,8 @@ void Shuffle(std::vector<uint32>& items)
 //         bool noItem = false;
 //         uint32 quality = urand(ITEM_QUALITY_UNCOMMON, ITEM_QUALITY_EPIC);
 //         uint32 attempts = 10;
-//         if (urand(0, 100) < 100 * sPlayerbotAIConfig->randomGearLoweringChance && quality > ITEM_QUALITY_NORMAL) {
+//         if (urand(0, 100) < 100 * sPlayerbotAIConfig->randomGearLoweringChance && quality > ITEM_QUALITY_NORMAL)
+//         {
 //             quality--;
 //         }
 //         // current item;
@@ -1686,8 +1708,9 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
 {
     if (incremental && !sPlayerbotAIConfig->incrementalGearInit)
         return;
-    
-    if (level < 5) {
+
+    if (level < 5)
+    {
         // original items
         if (CharStartOutfitEntry const* oEntry = GetCharStartOutfitEntry(bot->getRace(), bot->getClass(), bot->getGender()))
         {
@@ -1697,11 +1720,11 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                     continue;
 
                 uint32 itemId = oEntry->ItemId[j];
-                
+
                 // skip hearthstone
                 if (itemId == 6948)
                     continue;
-                
+
                 // just skip, reported in ObjectMgr::LoadItemTemplates
                 ItemTemplate const* iProto = sObjectMgr->GetItemTemplate(itemId);
                 if (!iProto)
@@ -1716,7 +1739,8 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                     continue;
                 }
 
-                if (bot->HasItemCount(itemId, count)) {
+                if (bot->HasItemCount(itemId, count))
+                {
                     continue;
                 }
 
@@ -1725,10 +1749,10 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
         }
         return;
     }
-    
+
     std::unordered_map<uint8, std::vector<uint32>> items;
     // int tab = AiFactory::GetPlayerSpecTab(bot);
-    
+
     uint32 blevel = bot->GetLevel();
     int32 delta = std::min(blevel, 10u);
 
@@ -1796,7 +1820,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
                         if (!proto)
                             continue;
-                        
+
                         bool shouldCheckGS = desiredQuality > ITEM_QUALITY_NORMAL;
 
                         if (shouldCheckGS && gearScoreLimit != 0 &&
@@ -1882,7 +1906,9 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
 
             WorldPacket packet(CMSG_AUTOSTORE_BAG_ITEM, 3);
             packet << bagIndex << slot << dstBag;
-            bot->GetSession()->HandleAutoStoreBagItemOpcode(packet);
+            WorldPackets::Item::AutoStoreBagItem nicePacket(std::move(packet));
+            nicePacket.Read();
+            bot->GetSession()->HandleAutoStoreBagItemOpcode(nicePacket);
         }
 
         oldItem = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
@@ -2502,66 +2528,35 @@ void PlayerbotFactory::InitAvailableSpells()
         for (CreatureTemplateContainer::const_iterator i = creatureTemplateContainer->begin();
              i != creatureTemplateContainer->end(); ++i)
         {
-            CreatureTemplate const& co = i->second;
-            if (co.trainer_type != TRAINER_TYPE_TRADESKILLS && co.trainer_type != TRAINER_TYPE_CLASS)
+            Trainer::Trainer* trainer = sObjectMgr->GetTrainer(i->first);
+
+            if (!trainer)
                 continue;
 
-            if (co.trainer_type == TRAINER_TYPE_CLASS && co.trainer_class != bot->getClass())
+            if (trainer->GetTrainerType() != Trainer::Type::Tradeskill &&
+                trainer->GetTrainerType() != Trainer::Type::Class)
                 continue;
 
-            uint32 trainerId = co.Entry;
-            trainerIdCache[bot->getClass()].push_back(trainerId);
+            if (trainer->GetTrainerType() == Trainer::Type::Class &&
+                !trainer->IsTrainerValidForPlayer(bot))
+                continue;
+
+            trainerIdCache[bot->getClass()].push_back(i->first);
         }
     }
     for (uint32 trainerId : trainerIdCache[bot->getClass()])
     {
-        TrainerSpellData const* trainer_spells = sObjectMgr->GetNpcTrainerSpells(trainerId);
-        if (!trainer_spells)
-            trainer_spells = sObjectMgr->GetNpcTrainerSpells(trainerId);
+        Trainer::Trainer* trainer = sObjectMgr->GetTrainer(trainerId);
 
-        if (!trainer_spells)
-            continue;
-
-        for (TrainerSpellMap::const_iterator itr = trainer_spells->spellList.begin();
-             itr != trainer_spells->spellList.end(); ++itr)
+        for (auto& spell : trainer->GetSpells())
         {
-            TrainerSpell const* tSpell = &itr->second;
-
-            if (!tSpell)
+            if (!trainer->CanTeachSpell(bot, trainer->GetSpell(spell.SpellId)))
                 continue;
 
-            if (tSpell->learnedSpell[0] && !bot->IsSpellFitByClassAndRace(tSpell->learnedSpell[0]))
-                continue;
-
-            TrainerSpellState state = bot->GetTrainerSpellState(tSpell);
-            if (state != TRAINER_SPELL_GREEN)
-                continue;
-
-            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(tSpell->spell);
-            bool learn = true;
-            for (uint8 j = 0; j < 3; ++j)
-            {
-                if (!tSpell->learnedSpell[j] && !bot->IsSpellFitByClassAndRace(tSpell->learnedSpell[j]))
-                    continue;
-
-                if (spellInfo->Effects[j].Effect == SPELL_EFFECT_PROFICIENCY ||
-                    (spellInfo->Effects[j].Effect == SPELL_EFFECT_SKILL_STEP &&
-                     spellInfo->Effects[j].MiscValue != SKILL_RIDING) ||
-                    spellInfo->Effects[j].Effect == SPELL_EFFECT_DUAL_WIELD)
-                {
-                    learn = false;
-                    break;
-                }
-            }
-            if (!learn)
-            {
-                continue;
-            }
-
-            if (tSpell->IsCastable())
-                bot->CastSpell(bot, tSpell->spell, true);
+            if (spell.IsCastable())
+                bot->CastSpell(bot, spell.SpellId, true);
             else
-                bot->learnSpell(tSpell->learnedSpell[0], false);
+                bot->learnSpell(spell.SpellId, false);
         }
     }
 }
@@ -2751,7 +2746,8 @@ void PlayerbotFactory::InitTalents(uint32 specNo)
 
 void PlayerbotFactory::InitTalentsByTemplate(uint32 specTab)
 {
-    // if (sPlayerbotAIConfig->parsedSpecLinkOrder[bot->getClass()][specNo][80].size() == 0) {
+    // if (sPlayerbotAIConfig->parsedSpecLinkOrder[bot->getClass()][specNo][80].size() == 0)
+    // {
     //     return;
     // }
     uint32 cls = bot->getClass();
@@ -2903,7 +2899,7 @@ void PlayerbotFactory::InitQuests(std::list<uint32>& questMap, bool withRewardIt
         // set reward to 5 to skip majority quest reward
         uint32 reward = withRewardItem ? 0 : 5;
         bot->RewardQuest(quest, reward, bot, false);
-        
+
         if (!withRewardItem)
         {
             // destroy the quest reward item
@@ -2990,10 +2986,10 @@ void PlayerbotFactory::InitAmmo()
         // disable next expansion ammo
         if (sPlayerbotAIConfig->limitGearExpansion && bot->GetLevel() <= 60 && tEntry >= 23728)
             continue;
-        
+
         if (sPlayerbotAIConfig->limitGearExpansion && bot->GetLevel() <= 70 && tEntry >= 35570)
             continue;
-        
+
         entry = tEntry;
         break;
     }
@@ -3157,7 +3153,7 @@ void PlayerbotFactory::InitPotions()
 
         if (effect == SPELL_EFFECT_ENERGIZE && !bot->GetPower(POWER_MANA))
             continue;
-        
+
         FindPotionVisitor visitor(bot, effect);
         IterateItems(&visitor);
         if (!visitor.GetResult().empty())
@@ -3230,7 +3226,7 @@ std::vector<uint32> PlayerbotFactory::GetCurrentGemsCount()
 
 void PlayerbotFactory::InitFood()
 {
-    if (sPlayerbotAIConfig->freeFood)
+    if (botAI && botAI->HasCheat(BotCheatMask::food))
     {
         return;
     }
@@ -3299,7 +3295,7 @@ void PlayerbotFactory::InitReagents()
     switch (bot->getClass())
     {
         case CLASS_DEATH_KNIGHT:
-        if (level >= 56)    
+        if (level >= 56)
                 items.push_back({37201, 40});   // Corpse Dust
             break;
         case CLASS_DRUID:
@@ -3941,45 +3937,33 @@ void PlayerbotFactory::InitInventoryEquip()
 void PlayerbotFactory::InitGuild()
 {
     if (bot->GetGuildId())
-        return;
-
-    // bot->SaveToDB(false, false);
-
-    // add guild tabard
-    if (bot->GetGuildId() && !bot->HasItemCount(5976, 1))
-        StoreItem(5976, 1);
-
-    if (sPlayerbotAIConfig->randomBotGuilds.empty())
-        RandomPlayerbotFactory::CreateRandomGuilds();
-
-    std::vector<uint32> guilds;
-    for (std::vector<uint32>::iterator i = sPlayerbotAIConfig->randomBotGuilds.begin();
-         i != sPlayerbotAIConfig->randomBotGuilds.end(); ++i)
-        guilds.push_back(*i);
-
-    if (guilds.empty())
     {
-        LOG_ERROR("playerbots", "No random guilds available");
+        if (!bot->HasItemCount(5976, 1) && bot->GetLevel() > 9)
+            StoreItem(5976, 1);
         return;
     }
 
-    int index = urand(0, guilds.size() - 1);
-    uint32 guildId = guilds[index];
-    Guild* guild = sGuildMgr->GetGuildById(guildId);
+    std::string guildName = sPlayerbotGuildMgr->AssignToGuild(bot);
+    if (guildName.empty())
+        return;
+
+    Guild* guild = sGuildMgr->GetGuildByName(guildName);
     if (!guild)
     {
-        LOG_ERROR("playerbots", "Invalid guild {}", guildId);
+        if (!sPlayerbotGuildMgr->CreateGuild(bot, guildName))
+            LOG_ERROR("playerbots","Failed to create guild {} for bot {}", guildName, bot->GetName());
         return;
     }
-
-    if (guild->GetMemberSize() < urand(10, 15))
-        guild->AddMember(bot->GetGUID(), urand(GR_OFFICER, GR_INITIATE));
-
+    else
+    {
+        if (guild->AddMember(bot->GetGUID(),urand(GR_OFFICER, GR_INITIATE)))
+            sPlayerbotGuildMgr->OnGuildUpdate(guild);
+        else
+            LOG_ERROR("playerbots","Bot {} failed to join guild {}.", bot->GetName(), guildName);
+    }
     // add guild tabard
     if (bot->GetGuildId() && bot->GetLevel() > 9 && urand(0, 4) && !bot->HasItemCount(5976, 1))
         StoreItem(5976, 1);
-
-    // bot->SaveToDB(false, false);
 }
 
 void PlayerbotFactory::InitImmersive()
@@ -4075,6 +4059,7 @@ void PlayerbotFactory::InitImmersive()
 
 void PlayerbotFactory::InitArenaTeam()
 {
+
     if (!sPlayerbotAIConfig->IsInRandomAccountList(bot->GetSession()->GetAccountId()))
         return;
 
@@ -4161,10 +4146,34 @@ void PlayerbotFactory::InitArenaTeam()
 
             if (botcaptain && botcaptain->GetTeamId() == bot->GetTeamId())  // need?
             {
+                // Add bot to arena team
                 arenateam->AddMember(bot->GetGUID());
-                arenateam->SaveToDB();
+
+                // Only synchronize ratings once the team is full (avoid redundant work)
+                // The captain was added with incorrect ratings when the team was created,
+                // so we fix everyone's ratings once the roster is complete
+                if (arenateam->GetMembersSize() >= (uint32)arenateam->GetType())
+                {
+                    uint32 teamRating = arenateam->GetRating();
+
+                    // Use SetRatingForAll to align all members with team rating
+                    arenateam->SetRatingForAll(teamRating);
+
+                    // For bot-only teams, keep MMR synchronized with team rating
+                    // This ensures matchmaking reflects the artificial team strength (1000-2000 range)
+                    // instead of being influenced by the global CONFIG_ARENA_START_MATCHMAKER_RATING
+                    for (auto& member : arenateam->GetMembers())
+                    {
+                        // Set MMR to match personal rating (which already matches team rating)
+                        member.MatchMakerRating = member.PersonalRating;
+                        member.MaxMMR = std::max(member.MaxMMR, member.PersonalRating);
+                    }
+                    // Force save all member data to database
+                    arenateam->SaveToDB(true);
+                }
             }
         }
+
         arenateams.erase(arenateams.begin() + index);
     }
 
@@ -4267,7 +4276,7 @@ void PlayerbotFactory::ApplyEnchantTemplate(uint8 spec)
     // const SpellItemEnchantmentEntry* a = sSpellItemEnchantmentStore.LookupEntry(1);
 }
 
-void PlayerbotFactory::ApplyEnchantAndGemsNew(bool destoryOld)
+void PlayerbotFactory::ApplyEnchantAndGemsNew(bool destroyOld)
 {
     //int32 bestGemEnchantId[4] = {-1, -1, -1, -1};  // 1, 2, 4, 8 color //not used, line marked for removal.
     //float bestGemScore[4] = {0, 0, 0, 0}; //not used, line marked for removal.
@@ -4325,7 +4334,7 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool destoryOld)
         {
             continue;
         }
-        
+
         if (item->GetTemplate() && item->GetTemplate()->Quality < ITEM_QUALITY_UNCOMMON)
             continue;
         int32 bestEnchantId = -1;
@@ -4348,10 +4357,10 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool destoryOld)
             }
 
             // disable next expansion enchantments
-            if (sPlayerbotAIConfig->limitEnchantExpansion && bot->GetLevel() <= 60 && enchantSpell >= 25072)
+            if (sPlayerbotAIConfig->limitEnchantExpansion && bot->GetLevel() <= 60 && enchantSpell >= 27899)
                 continue;
 
-            if (sPlayerbotAIConfig->limitEnchantExpansion && bot->GetLevel() <= 70 && enchantSpell > 48557)
+            if (sPlayerbotAIConfig->limitEnchantExpansion && bot->GetLevel() <= 70 && enchantSpell >= 44483)
                 continue;
 
             for (uint8 j = 0; j < MAX_SPELL_EFFECTS; ++j)
@@ -4641,12 +4650,12 @@ void PlayerbotFactory::InitKeyring()
 {
     if (!bot)
         return;
-    
+
     if (bot->GetLevel() < 70)
         return;
 
     ReputationMgr& repMgr = bot->GetReputationMgr(); // Reference, use . instead of ->
-    
+
     std::vector<std::pair<uint32, uint32>> keysToCheck;
 
     // Reputation-based Keys (Honored requirement)

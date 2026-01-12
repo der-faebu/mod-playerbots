@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_RANDOMPLAYERBOTMGR_H
@@ -9,6 +9,7 @@
 #include "NewRpgInfo.h"
 #include "ObjectGuid.h"
 #include "PlayerbotMgr.h"
+#include "GameTime.h"
 
 struct BattlegroundInfo
 {
@@ -45,25 +46,20 @@ class ChatHandler;
 class PerformanceMonitorOperation;
 class WorldLocation;
 
-class CachedEvent
+struct CachedEvent
 {
-public:
-    CachedEvent() : value(0), lastChangeTime(0), validIn(0), data("") {}
-    CachedEvent(const CachedEvent& other)
-        : value(other.value), lastChangeTime(other.lastChangeTime), validIn(other.validIn), data(other.data)
-    {
-    }
-    CachedEvent(uint32 value, uint32 lastChangeTime, uint32 validIn, std::string const data = "")
-        : value(value), lastChangeTime(lastChangeTime), validIn(validIn), data(data)
-    {
-    }
-
-    bool IsEmpty() { return !lastChangeTime; }
-
-    uint32 value;
-    uint32 lastChangeTime;
-    uint32 validIn;
+    uint32 value = 0;
+    uint32 lastChangeTime = 0;
+    uint32 validIn = 0;
     std::string data;
+
+    bool IsEmpty() const { return !lastChangeTime; }
+};
+
+struct BotEventCache
+{
+    bool loaded = false;
+    std::unordered_map<std::string, CachedEvent> events;
 };
 
 // https://gist.github.com/bradley219/5373998
@@ -139,13 +135,13 @@ public:
     void Revive(Player* player);
     void ChangeStrategy(Player* player);
     void ChangeStrategyOnce(Player* player);
-    uint32 GetValue(Player* bot, std::string const type);
-    uint32 GetValue(uint32 bot, std::string const type);
-    std::string const GetData(uint32 bot, std::string const type);
-    void SetValue(uint32 bot, std::string const type, uint32 value, std::string const data = "");
-    void SetValue(Player* bot, std::string const type, uint32 value, std::string const data = "");
+    uint32 GetValue(Player* bot, std::string const& type);
+    uint32 GetValue(uint32 bot, std::string const& type);
+    std::string GetData(uint32 bot, std::string const& type);
+    void SetValue(uint32 bot, std::string const& type, uint32 value, std::string const& data = "");
+    void SetValue(Player* bot, std::string const& type, uint32 value, std::string const& data = "");
     void Remove(Player* bot);
-    ObjectGuid const GetBattleMasterGUID(Player* bot, BattlegroundTypeId bgTypeId);
+    ObjectGuid GetBattleMasterGUID(Player* bot, BattlegroundTypeId bgTypeId);
     CreatureData const* GetCreatureDataByEntry(uint32 entry);
     void LoadBattleMastersCache();
     std::map<uint32, std::map<uint32, BattlegroundInfo>> BattlegroundData;
@@ -183,7 +179,11 @@ public:
         bool InsideBracket(uint32 val) { return val >= low && val <= high; }
     };
     std::map<uint32, LevelBracket> zone2LevelBracket;
-    std::map<uint8, std::vector<WorldLocation>> bankerLocsPerLevelCache;
+    struct BankerLocation {
+        WorldLocation loc;
+        uint32 entry;
+    };
+    std::map<uint8, std::vector<BankerLocation>> bankerLocsPerLevelCache;
 
     // Account type management
     void AssignAccountTypes();
@@ -199,10 +199,11 @@ private:
     bool _isBotInitializing = true;
     bool _isBotLogging = true;
     NewRpgStatistic rpgStasticTotal;
-    uint32 GetEventValue(uint32 bot, std::string const event);
-    std::string const GetEventData(uint32 bot, std::string const event);
-    uint32 SetEventValue(uint32 bot, std::string const event, uint32 value, uint32 validIn,
-                         std::string const data = "");
+    CachedEvent* FindEvent(uint32 bot, std::string const& event);
+    uint32 GetEventValue(uint32 bot, std::string const& event);
+    std::string GetEventData(uint32 bot, std::string const& event);
+    uint32 SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
+                         std::string const& data = "");
     void GetBots();
     std::vector<uint32> GetBgBots(uint32 bracket);
     time_t BgCheckTimer;
@@ -224,7 +225,7 @@ private:
     // std::map<uint32, std::vector<WorldLocation>> rpgLocsCache;
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> rpgLocsCacheLevel;
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
-    std::map<uint32, std::map<std::string, CachedEvent>> eventCache;
+    std::unordered_map<uint32, BotEventCache> eventCache;
     std::list<uint32> currentBots;
     uint32 bgBotsCount;
     uint32 playersLevel;
@@ -234,6 +235,7 @@ private:
     std::vector<uint32> addClassTypeAccounts;           // Accounts marked as AddClass (type 2)
 
     //void ScaleBotActivity();      // Deprecated function
+    static inline uint32 NowSeconds() { return static_cast<uint32>(GameTime::GetGameTime().count()); }
 };
 
 #define sRandomPlayerbotMgr RandomPlayerbotMgr::instance()

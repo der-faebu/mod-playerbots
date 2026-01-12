@@ -1,41 +1,45 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "CustomStrategy.h"
 
 #include <regex>
+#include <stdexcept>
 
 #include "Playerbots.h"
 
 std::map<std::string, std::string> CustomStrategy::actionLinesCache;
 
-NextAction* toNextAction(std::string const action)
+NextAction toNextAction(std::string const action)
 {
     std::vector<std::string> tokens = split(action, '!');
-    if (tokens.size() == 2 && !tokens[0].empty())
-        return new NextAction(tokens[0], atof(tokens[1].c_str()));
-    else if (tokens.size() == 1 && !tokens[0].empty())
-        return new NextAction(tokens[0], ACTION_NORMAL);
+
+    if (tokens[0].empty())
+        throw std::invalid_argument("Invalid action");
+
+    if (tokens.size() == 2)
+        return NextAction(tokens[0], atof(tokens[1].c_str()));
+
+    if (tokens.size() == 1)
+        return NextAction(tokens[0], ACTION_NORMAL);
 
     LOG_ERROR("playerbots", "Invalid action {}", action.c_str());
-    return nullptr;
+
+    throw std::invalid_argument("Invalid action");
 }
 
-NextAction** toNextActionArray(std::string const actions)
+std::vector<NextAction> toNextActionArray(const std::string actions)
 {
-    std::vector<std::string> tokens = split(actions, ',');
-    NextAction** res = new NextAction*[tokens.size() + 1];
+    const std::vector<std::string> tokens = split(actions, ',');
+    std::vector<NextAction> res = {};
 
-    uint32 index = 0;
-    for (std::vector<std::string>::iterator i = tokens.begin(); i != tokens.end(); ++i)
+    for (const std::string token : tokens)
     {
-        if (NextAction* na = toNextAction(*i))
-            res[index++] = na;
+        res.push_back(toNextAction(token));
     }
 
-    res[index++] = nullptr;
     return res;
 }
 

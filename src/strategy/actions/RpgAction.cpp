@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "RpgAction.h"
@@ -50,7 +50,6 @@ bool RpgAction::SetNextRpgAction()
     std::vector<uint32> relevances;
     std::vector<TriggerNode*> triggerNodes;
 
-
     for (auto& strategy : botAI->GetAiObjectContext()->GetSupportedStrategies())
     {
         if (strategy.find("rpg") == std::string::npos)
@@ -69,17 +68,15 @@ bool RpgAction::SetNextRpgAction()
 
                 triggerNode->setTrigger(trigger);
 
-                NextAction** nextActions = triggerNode->getHandlers();
+                std::vector<NextAction> nextActions = triggerNode->getHandlers();
 
                 Trigger* trigger = triggerNode->getTrigger();
 
                 bool isChecked = false;
 
-                for (int32 i = 0; i < NextAction::size(nextActions); i++)
+                for (NextAction nextAction : nextActions)
                 {
-                    NextAction* nextAction = nextActions[i];
-
-                    if (nextAction->getRelevance() > 5.0f)
+                    if (nextAction.getRelevance() > 5.0f)
                         continue;
 
                     if (!isChecked && !trigger->IsActive())
@@ -87,14 +84,13 @@ bool RpgAction::SetNextRpgAction()
 
                     isChecked = true;
 
-                    Action* action = botAI->GetAiObjectContext()->GetAction(nextAction->getName());
+                    Action* action = botAI->GetAiObjectContext()->GetAction(nextAction.getName());
                     if (!dynamic_cast<RpgEnabled*>(action) || !action->isPossible() || !action->isUseful())
                         continue;
 
                     actions.push_back(action);
-                    relevances.push_back((nextAction->getRelevance() - 1) * 500);
+                    relevances.push_back((nextAction.getRelevance() - 1) * 500);
                 }
-                NextAction::destroy(nextActions);
             }
         }
 

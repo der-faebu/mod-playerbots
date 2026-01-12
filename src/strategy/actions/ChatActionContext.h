@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_CHATACTIONCONTEXTACTION_H
@@ -79,9 +79,10 @@
 #include "OpenItemAction.h"
 #include "UnlockItemAction.h"
 #include "UnlockTradedItemAction.h"
-#include "PetAction.h"
+#include "TameAction.h"
 #include "TellGlyphsAction.h"
 #include "EquipGlyphsAction.h"
+#include "PetsAction.h"
 
 class ChatActionContext : public NamedObjectContext<Action>
 {
@@ -184,16 +185,17 @@ public:
         creators["guild remove"] = &ChatActionContext::guild_remove;
         creators["guild leave"] = &ChatActionContext::guild_leave;
         creators["rtsc"] = &ChatActionContext::rtsc;
-        creators["naxx chat shortcut"] = &ChatActionContext::naxx_chat_shortcut;
         creators["bwl chat shortcut"] = &ChatActionContext::bwl_chat_shortcut;
         creators["tell estimated dps"] = &ChatActionContext::tell_estimated_dps;
         creators["join"] = &ChatActionContext::join;
         creators["lfg"] = &ChatActionContext::lfg;
         creators["calc"] = &ChatActionContext::calc;
         creators["wipe"] = &ChatActionContext::wipe;
+        creators["tame"] = &ChatActionContext::tame;
+        creators["glyphs"] = &ChatActionContext::glyphs; // Added for custom Glyphs
+        creators["glyph equip"] = &ChatActionContext::glyph_equip; // Added for custom Glyphs
         creators["pet"] = &ChatActionContext::pet;
-		creators["glyphs"] = &ChatActionContext::glyphs; // Added for custom Glyphs
-		creators["glyph equip"] = &ChatActionContext::glyph_equip; // Added for custom Glyphs
+        creators["pet attack"] = &ChatActionContext::pet_attack;
         creators["roll"] = &ChatActionContext::roll_action;
     }
 
@@ -295,15 +297,16 @@ private:
     static Action* guild_remove(PlayerbotAI* botAI) { return new GuildRemoveAction(botAI); }
     static Action* guild_leave(PlayerbotAI* botAI) { return new GuildLeaveAction(botAI); }
     static Action* rtsc(PlayerbotAI* botAI) { return new RTSCAction(botAI); }
-    static Action* naxx_chat_shortcut(PlayerbotAI* ai) { return new NaxxChatShortcutAction(ai); }
     static Action* bwl_chat_shortcut(PlayerbotAI* ai) { return new BwlChatShortcutAction(ai); }
     static Action* tell_estimated_dps(PlayerbotAI* ai) { return new TellEstimatedDpsAction(ai); }
     static Action* join(PlayerbotAI* ai) { return new JoinGroupAction(ai); }
     static Action* calc(PlayerbotAI* ai) { return new TellCalculateItemAction(ai); }
     static Action* wipe(PlayerbotAI* ai) { return new WipeAction(ai); }
-    static Action* pet(PlayerbotAI* botAI) { return new PetAction(botAI); }
-	static Action* glyphs(PlayerbotAI* botAI) { return new TellGlyphsAction(botAI); } // Added for custom Glyphs
-	static Action* glyph_equip(PlayerbotAI* ai) { return new EquipGlyphsAction(ai); } // Added for custom Glyphs
+    static Action* tame(PlayerbotAI* botAI) { return new TameAction(botAI); }
+    static Action* glyphs(PlayerbotAI* botAI) { return new TellGlyphsAction(botAI); } // Added for custom Glyphs
+    static Action* glyph_equip(PlayerbotAI* ai) { return new EquipGlyphsAction(ai); } // Added for custom Glyphs
+    static Action* pet(PlayerbotAI* botAI) { return new PetsAction(botAI); }
+    static Action* pet_attack(PlayerbotAI* botAI) { return new PetsAction(botAI, "attack"); }
     static Action* roll_action(PlayerbotAI* botAI) { return new RollAction(botAI); }
 };
 

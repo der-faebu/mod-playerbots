@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "EquipAction.h"
+#include <utility>
 
 #include "Event.h"
 #include "ItemCountValue.h"
@@ -11,6 +12,7 @@
 #include "ItemVisitors.h"
 #include "Playerbots.h"
 #include "StatsWeightCalculator.h"
+#include "ItemPackets.h"
 
 bool EquipAction::Execute(Event event)
 {
@@ -104,8 +106,11 @@ void EquipAction::EquipItem(Item* item)
             WorldPacket packet(CMSG_AUTOEQUIP_ITEM_SLOT, 2);
             ObjectGuid itemguid = item->GetGUID();
             packet << itemguid << uint8(EQUIPMENT_SLOT_RANGED);
-            bot->GetSession()->HandleAutoEquipItemSlotOpcode(packet);
-        
+
+            WorldPackets::Item::AutoEquipItemSlot nicePacket(std::move(packet));
+            nicePacket.Read();
+            bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
+
             std::ostringstream out;
             out << "Equipping " << chat->FormatItem(itemProto) << " in ranged slot";
             botAI->TellMaster(out);
@@ -118,7 +123,7 @@ void EquipAction::EquipItem(Item* item)
         bool isWeapon = (itemProto->Class == ITEM_CLASS_WEAPON);
         bool canTitanGrip = bot->CanTitanGrip();
         bool canDualWield = bot->CanDualWield();
-        
+
         bool isTwoHander = (invType == INVTYPE_2HWEAPON);
         bool isValidTGWeapon = false;
         if (canTitanGrip && isTwoHander)
@@ -199,24 +204,28 @@ void EquipAction::EquipItem(Item* item)
                     WorldPacket eqPacket(CMSG_AUTOEQUIP_ITEM_SLOT, 2);
                     ObjectGuid newItemGuid = item->GetGUID();
                     eqPacket << newItemGuid << uint8(EQUIPMENT_SLOT_MAINHAND);
-                    bot->GetSession()->HandleAutoEquipItemSlotOpcode(eqPacket);
+                    WorldPackets::Item::AutoEquipItemSlot nicePacket(std::move(eqPacket));
+                    nicePacket.Read();
+                    bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
                 }
-            
+
                 // Try moving old main hand weapon to offhand if beneficial
                 if (mainHandItem && mainHandCanGoOff && (!offHandItem || mainHandScore > offHandScore))
                 {
                     const ItemTemplate* oldMHProto = mainHandItem->GetTemplate();
-            
+
                     WorldPacket offhandPacket(CMSG_AUTOEQUIP_ITEM_SLOT, 2);
                     ObjectGuid oldMHGuid = mainHandItem->GetGUID();
                     offhandPacket << oldMHGuid << uint8(EQUIPMENT_SLOT_OFFHAND);
-                    bot->GetSession()->HandleAutoEquipItemSlotOpcode(offhandPacket);
-            
+                    WorldPackets::Item::AutoEquipItemSlot nicePacket(std::move(offhandPacket));
+                    nicePacket.Read();
+                    bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
+
                     std::ostringstream moveMsg;
                     moveMsg << "Main hand upgrade found. Moving " << chat->FormatItem(oldMHProto) << " to offhand";
                     botAI->TellMaster(moveMsg);
                 }
-            
+
                 std::ostringstream out;
                 out << "Equipping " << chat->FormatItem(itemProto) << " in main hand";
                 botAI->TellMaster(out);
@@ -230,7 +239,9 @@ void EquipAction::EquipItem(Item* item)
                 WorldPacket eqPacket(CMSG_AUTOEQUIP_ITEM_SLOT, 2);
                 ObjectGuid newItemGuid = item->GetGUID();
                 eqPacket << newItemGuid << uint8(EQUIPMENT_SLOT_OFFHAND);
-                bot->GetSession()->HandleAutoEquipItemSlotOpcode(eqPacket);
+                WorldPackets::Item::AutoEquipItemSlot nicePacket(std::move(eqPacket));
+                nicePacket.Read();
+                bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
 
                 std::ostringstream out;
                 out << "Equipping " << chat->FormatItem(itemProto) << " in offhand";
@@ -260,19 +271,38 @@ void EquipAction::EquipItem(Item* item)
             {
                 if (equippedItems[1])
                 {
-                    // Both slots are full - pick the worst item to replace
+                    // Both slots are full - pick the worst item to replace, but only if new item is better
                     StatsWeightCalculator calc(bot);
                     calc.SetItemSetBonus(false);
                     calc.SetOverflowPenalty(false);
 
-                    float firstItemScore = calc.CalculateItem(equippedItems[0]->GetTemplate()->ItemId);
-                    float secondItemScore = calc.CalculateItem(equippedItems[1]->GetTemplate()->ItemId);
+                    // Calculate new item score with random properties
+                    int32 newItemRandomProp = item->GetItemRandomPropertyId();
+                    float newItemScore = calc.CalculateItem(itemId, newItemRandomProp);
 
-                    // If the second slot is worse, place the new item there
-                    if (firstItemScore > secondItemScore)
+                    // Calculate equipped items scores with random properties
+                    int32 firstRandomProp = equippedItems[0]->GetItemRandomPropertyId();
+                    int32 secondRandomProp = equippedItems[1]->GetItemRandomPropertyId();
+                    float firstItemScore = calc.CalculateItem(equippedItems[0]->GetTemplate()->ItemId, firstRandomProp);
+                    float secondItemScore = calc.CalculateItem(equippedItems[1]->GetTemplate()->ItemId, secondRandomProp);
+
+                    // Determine which slot (if any) should be replaced
+                    bool betterThanFirst = newItemScore > firstItemScore;
+                    bool betterThanSecond = newItemScore > secondItemScore;
+
+                    // Early return if new item is not better than either equipped item
+                    if (!betterThanFirst && !betterThanSecond)
+                        return;
+
+                    if (betterThanFirst && betterThanSecond)
                     {
-                        dstSlot++;
+                        // New item is better than both - replace the worse of the two equipped items
+                        if (firstItemScore > secondItemScore)
+                            dstSlot++; // Replace second slot (worse)
+                        // else: keep dstSlot as-is (replace first slot)
                     }
+                    else if (betterThanSecond)
+                        dstSlot++; // Only better than second slot - replace it
                 }
                 else
                 {
@@ -287,7 +317,9 @@ void EquipAction::EquipItem(Item* item)
             WorldPacket packet(CMSG_AUTOEQUIP_ITEM_SLOT, 2);
             ObjectGuid itemguid = item->GetGUID();
             packet << itemguid << dstSlot;
-            bot->GetSession()->HandleAutoEquipItemSlotOpcode(packet);
+            WorldPackets::Item::AutoEquipItemSlot nicePacket(std::move(packet));
+            nicePacket.Read();
+            bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
         }
     }
 
@@ -295,7 +327,6 @@ void EquipAction::EquipItem(Item* item)
     out << "Equipping " << chat->FormatItem(itemProto);
     botAI->TellMaster(out);
 }
-
 
 bool EquipUpgradesAction::Execute(Event event)
 {
@@ -313,6 +344,27 @@ bool EquipUpgradesAction::Execute(Event event)
             return false;
     }
 
+    if (event.GetSource() == "item push result")
+    {
+        WorldPacket p(event.getPacket());
+        p.rpos(0);
+        ObjectGuid playerGuid;
+        uint32 received, created, sendChatMessage, itemSlot, itemId;
+        uint8 bagSlot;
+
+        p >> playerGuid;
+        p >> received;
+        p >> created;
+        p >> sendChatMessage;
+        p >> bagSlot;
+        p >> itemSlot;
+        p >> itemId;
+
+        ItemTemplate const* item = sObjectMgr->GetItemTemplate(itemId);
+        if (item->Class == ITEM_CLASS_TRADE_GOODS && item->SubClass == ITEM_SUBCLASS_MEAT)
+            return false;
+    }
+
     CollectItemsVisitor visitor;
     IterateItems(&visitor, ITERATE_ITEMS_IN_BAGS);
 
@@ -325,9 +377,12 @@ bool EquipUpgradesAction::Execute(Event event)
         int32 randomProperty = item->GetItemRandomPropertyId();
         uint32 itemId = item->GetTemplate()->ItemId;
         std::string itemUsageParam;
-        if (randomProperty != 0) {
+        if (randomProperty != 0)
+        {
             itemUsageParam = std::to_string(itemId) + "," + std::to_string(randomProperty);
-        } else {
+        }
+        else
+        {
             itemUsageParam = std::to_string(itemId);
         }
         ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", itemUsageParam);
@@ -356,9 +411,12 @@ bool EquipUpgradeAction::Execute(Event event)
         int32 randomProperty = item->GetItemRandomPropertyId();
         uint32 itemId = item->GetTemplate()->ItemId;
         std::string itemUsageParam;
-        if (randomProperty != 0) {
+        if (randomProperty != 0)
+        {
             itemUsageParam = std::to_string(itemId) + "," + std::to_string(randomProperty);
-        } else {
+        }
+        else
+        {
             itemUsageParam = std::to_string(itemId);
         }
         ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", itemUsageParam);

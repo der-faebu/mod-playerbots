@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "ServerFacade.h"
@@ -41,13 +41,17 @@ bool ServerFacade::IsDistanceLessOrEqualThan(float dist1, float dist2) { return 
 
 void ServerFacade::SetFacingTo(Player* bot, WorldObject* wo, bool force)
 {
+    if (!bot)
+        return;
+
     float angle = bot->GetAngle(wo);
     // if (!force && bot->isMoving())
     //     bot->SetFacingTo(bot->GetAngle(wo));
     // else
     // {
     bot->SetOrientation(angle);
-    bot->SendMovementFlagUpdate();
+    if (!bot->IsRooted())
+        bot->SendMovementFlagUpdate();
     // }
 }
 
@@ -56,7 +60,7 @@ Unit* ServerFacade::GetChaseTarget(Unit* target)
     MovementGenerator* movementGen = target->GetMotionMaster()->top();
     if (movementGen && movementGen->GetMovementGeneratorType() == CHASE_MOTION_TYPE)
     {
-        if (target->GetTypeId() == TYPEID_PLAYER)
+        if (target->IsPlayer())
         {
             return static_cast<ChaseMovementGenerator<Player> const*>(movementGen)->GetTarget();
         }

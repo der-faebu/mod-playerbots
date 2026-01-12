@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_CHATTRIGGERCONTEXT_H
@@ -126,16 +126,17 @@ public:
         creators["guild leave"] = &ChatTriggerContext::guild_leave;
         creators["rtsc"] = &ChatTriggerContext::rtsc;
         creators["drink"] = &ChatTriggerContext::drink;
-        // creators["naxx"] = &ChatTriggerContext::naxx;
         // creators["bwl"] = &ChatTriggerContext::bwl;
         creators["dps"] = &ChatTriggerContext::dps;
         creators["disperse"] = &ChatTriggerContext::disperse;
         creators["calc"] = &ChatTriggerContext::calc;
         creators["qi"] = &ChatTriggerContext::qi;
         creators["wipe"] = &ChatTriggerContext::wipe;
-        creators["pet"] = &ChatTriggerContext::pet;
+        creators["tame"] = &ChatTriggerContext::tame;
         creators["glyphs"] = &ChatTriggerContext::glyphs; // Added for custom Glyphs
         creators["glyph equip"] = &ChatTriggerContext::glyph_equip; // Added for custom Glyphs
+        creators["pet"] = &ChatTriggerContext::pet;
+        creators["pet attack"] = &ChatTriggerContext::pet_attack;
         creators["roll"] = &ChatTriggerContext::roll_action;
     }
 
@@ -242,16 +243,17 @@ private:
     static Trigger* guild_leave(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "guild leave"); }
     static Trigger* rtsc(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "rtsc"); }
     static Trigger* drink(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "drink"); }
-    // static Trigger* naxx(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "naxx"); }
     // static Trigger* bwl(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "bwl"); }
     static Trigger* dps(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "dps"); }
     static Trigger* disperse(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "disperse"); }
     static Trigger* calc(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "calc"); }
     static Trigger* qi(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "qi"); }
     static Trigger* wipe(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "wipe"); }
-    static Trigger* pet(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "pet"); }
+    static Trigger* tame(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "tame"); }
     static Trigger* glyphs(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "glyphs"); } // Added for custom Glyphs
     static Trigger* glyph_equip(PlayerbotAI* ai) { return new ChatCommandTrigger(ai, "glyph equip"); } // Added for custom Glyphs
+    static Trigger* pet(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "pet"); }
+    static Trigger* pet_attack(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "pet attack"); }
     static Trigger* roll_action(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "roll"); }
 };
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "BuyAction.h"
@@ -67,14 +67,14 @@ bool BuyAction::Execute(Event event)
             calculator.SetOverflowPenalty(false);
 
             std::sort(m_items_sorted.begin(), m_items_sorted.end(),
-                [&calculator](VendorItem* i, VendorItem* j) 
+                [&calculator](VendorItem* i, VendorItem* j)
                 {
                     ItemTemplate const* item1 = sObjectMgr->GetItemTemplate(i->item);
                     ItemTemplate const* item2 = sObjectMgr->GetItemTemplate(j->item);
-    
+
                     if (!item1 || !item2)
                         return false;
-                
+
                     float score1 = calculator.CalculateItem(item1->ItemId);
                     float score2 = calculator.CalculateItem(item2->ItemId);
 
@@ -88,19 +88,19 @@ bool BuyAction::Execute(Event event)
                 });
 
             std::unordered_map<uint32, float> bestPurchasedItemScore;  // Track best item score per InventoryType
-            
+
             for (auto& tItem : m_items_sorted)
             {
                 uint32 maxPurchases = 1;  // Default to buying once
                 ItemTemplate const* proto = sObjectMgr->GetItemTemplate(tItem->item);
                 if (!proto)
                     continue;
-            
+
                 if (proto->Class == ITEM_CLASS_CONSUMABLE || proto->Class == ITEM_CLASS_PROJECTILE)
                 {
                     maxPurchases = 10;  // Allow up to 10 purchases if it's a consumable or projectile
                 }
-            
+
                 for (uint32 i = 0; i < maxPurchases; i++)
                 {
                     ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", tItem->item);
@@ -224,42 +224,36 @@ bool BuyAction::Execute(Event event)
 
 bool BuyAction::BuyItem(VendorItemData const* tItems, ObjectGuid vendorguid, ItemTemplate const* proto)
 {
-    uint32 oldCount = AI_VALUE2(uint32, "item count", proto->Name1);
-
-    if (!tItems)
+    if (!tItems || !proto)
         return false;
 
     uint32 itemId = proto->ItemId;
-    for (uint32 slot = 0; slot < tItems->GetItemCount(); slot++)
+    uint32 oldCount = bot->GetItemCount(itemId, false);
+
+    for (uint32 slot = 0; slot < tItems->GetItemCount(); ++slot)
     {
-        if (tItems->GetItem(slot)->item == itemId)
+        if (tItems->GetItem(slot)->item != itemId)
+            continue;
+
+        uint32 botMoney = bot->GetMoney();
+        if (botAI->HasCheat(BotCheatMask::gold))
+            bot->SetMoney(10000000);
+
+        bot->BuyItemFromVendorSlot(vendorguid, slot, itemId, 1, NULL_BAG, NULL_SLOT);
+
+        if (botAI->HasCheat(BotCheatMask::gold))
+            bot->SetMoney(botMoney);
+
+        uint32 newCount = bot->GetItemCount(itemId, false);
+        if (newCount > oldCount)
         {
-            uint32 botMoney = bot->GetMoney();
-            if (botAI->HasCheat(BotCheatMask::gold))
-            {
-                bot->SetMoney(10000000);
-            }
-
-            bot->BuyItemFromVendorSlot(vendorguid, slot, itemId, 1, NULL_BAG, NULL_SLOT);
-
-            if (botAI->HasCheat(BotCheatMask::gold))
-            {
-                bot->SetMoney(botMoney);
-            }
-
-            if (oldCount <
-                AI_VALUE2(
-                    uint32, "item count",
-                    proto->Name1))  // BuyItem Always returns false (unless unique) so we have to check the item counts.
-            {
-                std::ostringstream out;
-                out << "Buying " << ChatHelper::FormatItem(proto);
-                botAI->TellMaster(out.str());
-                return true;
-            }
-
-            return false;
+            std::ostringstream out;
+            out << "Buying " << ChatHelper::FormatItem(proto);
+            botAI->TellMaster(out.str());
+            return true;
         }
+
+        return false;
     }
 
     return false;

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "TravelMgr.h"
@@ -217,6 +217,11 @@ bool WorldPosition::isUnderWater()
                                              DEFAULT_COLLISION_HEIGHT)
                     : false;
 };
+
+bool WorldPosition::IsValid()
+{
+    return !(GetMapId() == MAPID_INVALID && GetPositionX() == 0 && GetPositionY() == 0 && GetPositionZ() == 0);
+}
 
 WorldPosition WorldPosition::relPoint(WorldPosition* center)
 {
@@ -480,7 +485,7 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
 std::set<Transport*> WorldPosition::getTransports(uint32 entry)
 {
     /*
-    if(!entry)
+    if (!entry)
         return getMap()->m_transports;
     else
     {
@@ -488,7 +493,7 @@ std::set<Transport*> WorldPosition::getTransports(uint32 entry)
     std::set<Transport*> transports;
     /*
     for (auto transport : getMap()->m_transports)
-        if(transport->GetEntry() == entry)
+        if (transport->GetEntry() == entry)
             transports.insert(transport);
 
     return transports;
@@ -1272,7 +1277,7 @@ std::string const RpgTravelDestination::getTitle()
 {
     std::ostringstream out;
 
-    if(entry > 0)
+    if (entry > 0)
         out << "rpg npc ";
 
     out << " " << ChatHelper::FormatWorldEntry(entry);
@@ -2076,7 +2081,6 @@ void TravelMgr::LoadQuestTravelTable()
                     continue;
                 }
 
-
                 if (r.role == 0)
                 {
                     container->questGivers.push_back(loc);
@@ -2591,7 +2595,7 @@ void TravelMgr::LoadQuestTravelTable()
 
                         //if (data->displayId == 3015)
                         //    pos.setZ(pos.getZ() + 6.0f);
-                        //else if(data->displayId == 3031)
+                        //else if (data->displayId == 3031)
                        //     pos.setZ(pos.getZ() - 17.0f);
 
                         if (prevNode)
@@ -3405,13 +3409,14 @@ void TravelMgr::LoadQuestTravelTable()
                                     {
                                         Strategy* strat = con->GetStrategy(stratName);
 
-                                        if (strat->getDefaultActions())
-                                            for (uint32 i = 0; i < NextAction::size(strat->getDefaultActions()); i++)
-                                            {
-                                                NextAction* nextAction = strat->getDefaultActions()[i];
+                                        const std::vector<NextAction> defaultActions  = strat->getDefaultActions();
 
+                                        if (defaultActions.size() > 0)
+                                        {
+                                            for (NextAction nextAction : defaultActions)
+                                            {
                                                 std::ostringstream aout;
-                                                aout << nextAction->getRelevance() << "," << nextAction->getName()
+                                                aout << nextAction.getRelevance() << "," << nextAction.getName()
                                                      << ",,S:" << stratName;
 
                                                 if (actions.find(aout.str().c_str()) != actions.end())
@@ -3423,27 +3428,24 @@ void TravelMgr::LoadQuestTravelTable()
 
                                                 actions.insert_or_assign(aout.str().c_str(), classSpecLevel);
                                             }
+                                        }
 
                                         std::vector<TriggerNode*> triggers;
                                         strat->InitTriggers(triggers);
-                                        for (auto& triggerNode : triggers)
-                                        {
-                                            // out << " TN:" << triggerNode->getName();
 
+                                        for (TriggerNode*& triggerNode : triggers)
+                                        {
                                             if (Trigger* trigger = con->GetTrigger(triggerNode->getName()))
                                             {
                                                 triggerNode->setTrigger(trigger);
 
-                                                NextAction** nextActions = triggerNode->getHandlers();
+                                                std::vector<NextAction> nextActions = triggerNode->getHandlers();
 
-                                                for (uint32 i = 0; i < NextAction::size(nextActions); i++)
+                                                // for (uint32_t i = 0; i < nextActions.size(); ++i)
+                                                for (NextAction nextAction : nextActions)
                                                 {
-                                                    NextAction* nextAction = nextActions[i];
-                                                    // out << " A:" << nextAction->getName() << "(" <<
-                                                    // nextAction->getRelevance() << ")";
-
                                                     std::ostringstream aout;
-                                                    aout << nextAction->getRelevance() << "," << nextAction->getName()
+                                                    aout << nextAction.getRelevance() << "," << nextAction.getName()
                                                          << "," << triggerNode->getName() << "," << stratName;
 
                                                     if (actions.find(aout.str().c_str()) != actions.end())

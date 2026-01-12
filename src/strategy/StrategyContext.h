@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_STRATEGYCONTEXT_H
@@ -120,6 +120,8 @@ public:
         creators["formation"] = &StrategyContext::combat_formation;
         creators["move from group"] = &StrategyContext::move_from_group;
         creators["worldbuff"] = &StrategyContext::world_buff;
+        creators["use bobber"] = &StrategyContext::bobber_strategy;
+        creators["master fishing"] = &StrategyContext::master_fishing;
     }
 
 private:
@@ -184,10 +186,12 @@ private:
     static Strategy* grind(PlayerbotAI* botAI) { return new GrindingStrategy(botAI); }
     static Strategy* avoid_aoe(PlayerbotAI* botAI) { return new AvoidAoeStrategy(botAI); }
     static Strategy* tank_face(PlayerbotAI* botAI) { return new TankFaceStrategy(botAI); }
-    static Strategy* move_random(PlayerbotAI* ai) { return new MoveRandomStrategy(ai); }
-    static Strategy* combat_formation(PlayerbotAI* ai) { return new CombatFormationStrategy(ai); }
+    static Strategy* move_random(PlayerbotAI* botAI) { return new MoveRandomStrategy(botAI); }
+    static Strategy* combat_formation(PlayerbotAI* botAI) { return new CombatFormationStrategy(botAI); }
     static Strategy* move_from_group(PlayerbotAI* botAI) { return new MoveFromGroupStrategy(botAI); }
     static Strategy* world_buff(PlayerbotAI* botAI) { return new WorldBuffStrategy(botAI); }
+    static Strategy* bobber_strategy(PlayerbotAI* botAI) { return new UseBobberStrategy(botAI); }
+    static Strategy* master_fishing(PlayerbotAI* botAI) { return new MasterFishingStrategy(botAI); }
 };
 
 class MovementStrategyContext : public NamedObjectContext<Strategy>

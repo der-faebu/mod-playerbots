@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "Engine.h"
@@ -77,7 +77,8 @@ Engine::~Engine(void)
     // for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
     // {
     //     Strategy* strategy = i->second;
-    //     if (strategy) {
+    //     if (strategy)
+    //     {
     //         delete strategy;
     //     }
     // }
@@ -88,7 +89,7 @@ Engine::~Engine(void)
 void Engine::Reset()
 {
     strategyTypeMask = 0;
-    
+
     ActionNode* action = nullptr;
 
     while ((action = queue.Pop()) != nullptr)
@@ -154,7 +155,7 @@ bool Engine::DoNextAction(Unit* unit, uint32 depth, bool minimal)
 
     uint32 iterations = 0;
     uint32 iterationsPerTick = queue.Size() * (minimal ? 2 : sPlayerbotAIConfig->iterationsPerTick);
-    
+
     while (++iterations <= iterationsPerTick)
     {
         basket = queue.Peek();
@@ -257,48 +258,45 @@ ActionNode* Engine::CreateActionNode(std::string const name)
         return node;
 
     return new ActionNode(name,
-                          /*P*/ nullptr,
-                          /*A*/ nullptr,
-                          /*C*/ nullptr);
+                          /*P*/ {},
+                          /*A*/ {},
+                          /*C*/ {});
 }
 
-bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool skipPrerequisites, Event event,
-                             char const* pushType)
+bool Engine::MultiplyAndPush(
+    std::vector<NextAction> actions,
+    float forceRelevance,
+    bool skipPrerequisites,
+    Event event,
+    char const* pushType
+)
 {
     bool pushed = false;
-    if (actions)
+
+    for (NextAction nextAction : actions)
     {
-        for (uint32 j = 0; actions[j]; j++)
+        ActionNode* action = this->CreateActionNode(nextAction.getName());
+
+        this->InitializeAction(action);
+
+        float k = nextAction.getRelevance();
+
+        if (forceRelevance > 0.0f)
         {
-            if (NextAction* nextAction = actions[j])
-            {
-                ActionNode* action = CreateActionNode(nextAction->getName());
-                InitializeAction(action);
-
-                float k = nextAction->getRelevance();
-                if (forceRelevance > 0.0f)
-                {
-                    k = forceRelevance;
-                }
-
-                if (k > 0)
-                {
-                    LogAction("PUSH:%s - %f (%s)", action->getName().c_str(), k, pushType);
-                    queue.Push(new ActionBasket(action, k, skipPrerequisites, event));
-                    pushed = true;
-                }
-                else
-                {
-                    delete action;
-                }
-
-                delete nextAction;
-            }
-            else
-                break;
+            k = forceRelevance;
         }
 
-        delete[] actions;
+        if (k > 0)
+        {
+            this->LogAction("PUSH:%s - %f (%s)", action->getName().c_str(), k, pushType);
+            queue.Push(new ActionBasket(action, k, skipPrerequisites, event));
+            pushed = true;
+
+            continue;
+        }
+
+        delete action;
+
     }
 
     return pushed;
@@ -401,7 +399,6 @@ void Engine::addStrategiesNoInit(std::string first, ...)
 
     va_end(vl);
 }
-
 
 bool Engine::removeStrategy(std::string const name, bool init)
 {
@@ -530,10 +527,10 @@ std::vector<std::string> Engine::GetStrategies()
 
 void Engine::PushAgain(ActionNode* actionNode, float relevance, Event event)
 {
-    NextAction** nextAction = new NextAction*[2];
-    nextAction[0] = new NextAction(actionNode->getName(), relevance);
-    nextAction[1] = nullptr;
+    std::vector<NextAction> nextAction = { NextAction(actionNode->getName(), relevance) };
+
     MultiplyAndPush(nextAction, relevance, true, event, "again");
+
     delete actionNode;
 }
 
@@ -562,6 +559,13 @@ Action* Engine::InitializeAction(ActionNode* actionNode)
 bool Engine::ListenAndExecute(Action* action, Event event)
 {
     bool actionExecuted = false;
+
+    if (action == nullptr)
+    {
+        LOG_ERROR("playerbots", "Action is nullptr");
+
+        return actionExecuted;
+    }
 
     if (actionExecutionListeners.Before(action, event))
     {

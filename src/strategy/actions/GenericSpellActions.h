@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef _PLAYERBOT_GENERICSPELLACTIONS_H
@@ -27,9 +27,13 @@ public:
     bool isUseful() override;
     ActionThreatType getThreatType() override { return ActionThreatType::Single; }
 
-    NextAction** getPrerequisites() override;
+    std::vector<NextAction> getPrerequisites() override
+    {
+        return {};
+    }
+
     std::string const getSpell() { return spell; }
-    
+
 protected:
     std::string spell;
     float range;
@@ -193,10 +197,12 @@ public:
     ResurrectPartyMemberAction(PlayerbotAI* botAI, std::string const spell) : CastSpellAction(botAI, spell) {}
 
     std::string const GetTargetName() override { return "party member to resurrect"; }
-    NextAction** getPrerequisites() override
+    std::vector<NextAction> getPrerequisites() override
     {
-        return NextAction::merge(NextAction::array(0, new NextAction("reach party member to resurrect"), NULL),
-                                 Action::getPrerequisites());
+        return NextAction::merge(
+            { NextAction("reach party member to resurrect") },
+            Action::getPrerequisites()
+        );
     }
 };
 
@@ -215,17 +221,18 @@ protected:
     uint32 dispelType;
 };
 
+// Make Bots Paladin, druid, mage use the greater buff rank spell
 class BuffOnPartyAction : public CastBuffSpellAction, public PartyMemberActionNameSupport
 {
 public:
     BuffOnPartyAction(PlayerbotAI* botAI, std::string const spell)
-        : CastBuffSpellAction(botAI, spell), PartyMemberActionNameSupport(spell)
-    {
-    }
+        : CastBuffSpellAction(botAI, spell), PartyMemberActionNameSupport(spell) { }
 
     Value<Unit*>* GetTargetValue() override;
+    bool Execute(Event event) override;
     std::string const getName() override { return PartyMemberActionNameSupport::getName(); }
 };
+// End Fix
 
 class CastShootAction : public CastSpellAction
 {

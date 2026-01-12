@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license, you may redistribute it
- * and/or modify it under version 2 of the License, or (at your option), any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "RtiTargetValue.h"
@@ -63,6 +63,16 @@ Unit* RtiTargetValue::Calculate()
         sServerFacade->IsDistanceGreaterThan(sServerFacade->GetDistance2d(bot, unit),
                                              sPlayerbotAIConfig->sightDistance))
         return nullptr;
+
+    // Also prevent chasing raid icon targets that are too far away from the master,
+    // even if they are technically visible to the bot.
+    if (Player* master = botAI->GetMaster())
+    {
+        if (master->IsInWorld() && master->GetMapId() == unit->GetMapId() &&
+            sServerFacade->IsDistanceGreaterThan(sServerFacade->GetDistance2d(master, unit),
+                sPlayerbotAIConfig->sightDistance))
+            return nullptr;
+    }
 
     return unit;
 }
